@@ -196,6 +196,30 @@ def predict_flood(weather_data):
 def health_check():
     return jsonify({'status': 'ok', 'model_loaded': model is not None})
 
+@app.route('/api/model/stats', methods=['GET'])
+def get_model_stats():
+    """Get model accuracy and statistics"""
+    if model is None:
+        return jsonify({'error': 'Model not loaded'}), 404
+    
+    # Model statistics
+    stats = {
+        'model_type': 'Random Forest Classifier',
+        'n_estimators': model.n_estimators,
+        'max_depth': model.max_depth,
+        'training_accuracy': 0.7258,  # From training output
+        'test_accuracy': 0.6852,      # From training output
+        'features': feature_cols,
+        'feature_importance': {}
+    }
+    
+    # Get feature importance
+    if hasattr(model, 'feature_importances_'):
+        for i, col in enumerate(feature_cols):
+            stats['feature_importance'][col] = round(float(model.feature_importances_[i]), 4)
+    
+    return jsonify(stats)
+
 @app.route('/api/predict', methods=['GET'])
 def get_prediction():
     """Get current flood prediction with weather data"""

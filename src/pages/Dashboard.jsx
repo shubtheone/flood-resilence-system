@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import FloodMap from '../components/dashboard/FloodMap';
 import AlertsPanel from '../components/dashboard/AlertsPanel';
 import WaterLevelChart from '../components/dashboard/WaterLevelChart';
@@ -24,23 +24,64 @@ const StatCard = ({ title, value, unit, icon: Icon, trend }) => (
 );
 
 const Dashboard = () => {
+  const [selectedCity, setSelectedCity] = useState('Mumbai');
+  const [currentRiskLevel, setCurrentRiskLevel] = useState('LOW');
+  const [weatherData, setWeatherData] = useState(null);
+
+  // Callback to receive prediction updates from PredictionPanel
+  const handlePredictionUpdate = useCallback((prediction, weather) => {
+    if (prediction?.risk_level) {
+      setCurrentRiskLevel(prediction.risk_level);
+    }
+    if (weather) {
+      setWeatherData(weather);
+    }
+  }, []);
+
   return (
     <div className="dashboard-grid">
-      {/* Stats Row */}
+      {/* Stats Row - Now with live data */}
       <div className="stats-row">
-        <StatCard title="Avg Rainfall" value="45" unit="mm" icon={CloudRain} trend={12} />
-        <StatCard title="Water Level" value="4.2" unit="m" icon={Droplets} trend={5} />
-        <StatCard title="Wind Speed" value="18" unit="km/h" icon={Wind} trend={-2} />
-        <StatCard title="Temperature" value="24" unit="°C" icon={Thermometer} trend={1} />
+        <StatCard
+          title="Rainfall"
+          value={weatherData?.rainfall?.toFixed(0) || '0'}
+          unit="mm"
+          icon={CloudRain}
+          trend={weatherData?.rainfall > 50 ? 15 : -5}
+        />
+        <StatCard
+          title="River Level"
+          value={weatherData?.river_level?.toFixed(1) || '3.0'}
+          unit="m"
+          icon={Droplets}
+          trend={weatherData?.river_level > 4 ? 8 : -3}
+        />
+        <StatCard
+          title="Wind Speed"
+          value={weatherData?.wind_speed?.toFixed(0) || '15'}
+          unit="km/h"
+          icon={Wind}
+          trend={-2}
+        />
+        <StatCard
+          title="Temperature"
+          value={weatherData?.temperature?.toFixed(0) || '28'}
+          unit="°C"
+          icon={Thermometer}
+          trend={1}
+        />
       </div>
 
       {/* AI Prediction Panel - Featured */}
-      <PredictionPanel />
+      <PredictionPanel
+        onCityChange={setSelectedCity}
+        onPredictionUpdate={handlePredictionUpdate}
+      />
 
       {/* Main Content: Map & Alerts */}
       <div className="main-grid">
         <div className="map-section">
-          <FloodMap height="100%" />
+          <FloodMap height="100%" city={selectedCity} riskLevel={currentRiskLevel} />
         </div>
         <div className="side-panel">
           <AlertsPanel />

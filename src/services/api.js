@@ -99,5 +99,16 @@ export const api = {
             console.error('API Error:', error);
             return null;
         }
+    },
+
+    // Get model statistics and accuracy
+    getModelStats: async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/model/stats`);
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            return null;
+        }
     }
 };

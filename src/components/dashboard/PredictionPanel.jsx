@@ -13,7 +13,7 @@ const CITIES = [
   { value: 'Tokyo', label: '🇯🇵 Tokyo' },
 ];
 
-const PredictionPanel = () => {
+const PredictionPanel = ({ onCityChange, onPredictionUpdate }) => {
   const [isSimulating, setIsSimulating] = useState(false);
   const [prediction, setPrediction] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -24,6 +24,7 @@ const PredictionPanel = () => {
   const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [apiKeyMessage, setApiKeyMessage] = useState('');
+  const [modelStats, setModelStats] = useState(null);
 
   // Check backend health and config
   useEffect(() => {
@@ -35,6 +36,12 @@ const PredictionPanel = () => {
       if (config) {
         setApiKeyConfigured(config.openweather_configured);
       }
+
+      // Fetch model stats
+      const stats = await api.getModelStats();
+      if (stats) {
+        setModelStats(stats);
+      }
     };
     checkHealth();
   }, []);
@@ -44,8 +51,20 @@ const PredictionPanel = () => {
     const data = await api.getPrediction(selectedCity);
     if (data) {
       setPrediction(data);
+      // Notify parent of prediction update
+      if (onPredictionUpdate) {
+        onPredictionUpdate(data.prediction, data.weather);
+      }
     }
-  }, [selectedCity]);
+  }, [selectedCity, onPredictionUpdate]);
+
+  // Handle city change
+  const handleCityChange = (city) => {
+    setSelectedCity(city);
+    if (onCityChange) {
+      onCityChange(city);
+    }
+  };
 
   // Real-time polling every 10 seconds during simulation
   useEffect(() => {
@@ -134,7 +153,7 @@ const PredictionPanel = () => {
           <MapPin size={16} />
           <select
             value={selectedCity}
-            onChange={(e) => setSelectedCity(e.target.value)}
+            onChange={(e) => handleCityChange(e.target.value)}
             disabled={isSimulating}
           >
             {CITIES.map(city => (
@@ -271,6 +290,33 @@ const PredictionPanel = () => {
             Source: {weather.source === 'live' ? '🌐 Live Weather API' : '🔬 Simulation Engine'}
             {weather.city && ` • ${weather.city}`}
           </div>
+
+          {/* Model Accuracy Display */}
+          {modelStats && (
+            <div className="model-stats">
+              <div className="model-stats-header">
+                <span>🤖 {modelStats.model_type}</span>
+              </div>
+              <div className="model-stats-grid">
+                <div className="stat-item">
+                  <span className="stat-label">Training Accuracy</span>
+                  <span className="stat-value accuracy">{(modelStats.training_accuracy * 100).toFixed(1)}%</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label">Test Accuracy</span>
+                  <span className="stat-value accuracy">{(modelStats.test_accuracy * 100).toFixed(1)}%</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label">Estimators</span>
+                  <span className="stat-value">{modelStats.n_estimators}</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label">Method</span>
+                  <span className="stat-value method">{pred.method === 'ml-model' ? '✅ ML' : '📋 Rules'}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -574,6 +620,52 @@ const PredictionPanel = () => {
           text-align: center;
           padding-top: 0.5rem;
           border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .model-stats {
+          margin-top: 0.75rem;
+          padding: 0.75rem;
+          background: rgba(59, 130, 246, 0.1);
+          border-radius: var(--radius-button);
+          border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .model-stats-header {
+          font-size: 0.75rem;
+          color: var(--color-brand-primary);
+          margin-bottom: 0.5rem;
+          font-weight: 600;
+        }
+
+        .model-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 0.5rem;
+        }
+
+        .model-stats .stat-item {
+          text-align: center;
+        }
+
+        .model-stats .stat-label {
+          display: block;
+          font-size: 0.625rem;
+          color: var(--color-text-dim);
+          text-transform: uppercase;
+        }
+
+        .model-stats .stat-value {
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: var(--color-text-main);
+        }
+
+        .model-stats .stat-value.accuracy {
+          color: var(--color-success);
+        }
+
+        .model-stats .stat-value.method {
+          color: var(--color-brand-primary);
         }
       `}</style>
     </div>
