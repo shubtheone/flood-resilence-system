@@ -96,6 +96,22 @@ const PredictionPanel = () => {
     }
   };
 
+  const handleSetApiKey = async () => {
+    if (!apiKey.trim()) return;
+    setLoading(true);
+    const result = await api.setApiKey(apiKey);
+    if (result?.status === 'success') {
+      setApiKeyConfigured(true);
+      setApiKeyMessage('✅ ' + result.message);
+      setShowApiKeyInput(false);
+      fetchPrediction();
+    } else {
+      setApiKeyMessage('❌ ' + (result?.message || 'Failed to set API key'));
+    }
+    setTimeout(() => setApiKeyMessage(''), 5000);
+    setLoading(false);
+  };
+
   const weather = prediction?.weather || {};
   const pred = prediction?.prediction || {};
 
@@ -111,6 +127,49 @@ const PredictionPanel = () => {
           {backendOnline ? 'Model Online' : 'Offline - Start Backend'}
         </span>
       </div>
+
+      {/* City Selector & API Key Config */}
+      <div className="config-row">
+        <div className="city-selector">
+          <MapPin size={16} />
+          <select
+            value={selectedCity}
+            onChange={(e) => setSelectedCity(e.target.value)}
+            disabled={isSimulating}
+          >
+            {CITIES.map(city => (
+              <option key={city.value} value={city.value}>{city.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <button
+          className={`btn-config ${apiKeyConfigured ? 'configured' : ''}`}
+          onClick={() => setShowApiKeyInput(!showApiKeyInput)}
+        >
+          {apiKeyConfigured ? <Check size={16} /> : <Key size={16} />}
+          {apiKeyConfigured ? 'Live Weather' : 'Add API Key'}
+        </button>
+      </div>
+
+      {/* API Key Input */}
+      {showApiKeyInput && (
+        <div className="api-key-input animate-fade-in">
+          <input
+            type="text"
+            placeholder="Enter OpenWeatherMap API Key"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+          />
+          <button onClick={handleSetApiKey} disabled={loading || !apiKey.trim()}>
+            Save
+          </button>
+        </div>
+      )}
+
+      {apiKeyMessage && (
+        <div className="api-message">{apiKeyMessage}</div>
+      )}
 
       {/* Control Buttons */}
       <div className="control-buttons">
@@ -260,6 +319,103 @@ const PredictionPanel = () => {
         .status-badge.offline {
           background: rgba(239, 68, 68, 0.2);
           color: var(--color-danger);
+        }
+
+        .config-row {
+          display: flex;
+          gap: 0.75rem;
+          align-items: center;
+        }
+
+        .city-selector {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex: 1;
+          background: rgba(255, 255, 255, 0.05);
+          padding: 0.5rem 0.75rem;
+          border-radius: var(--radius-button);
+          color: var(--color-text-muted);
+        }
+
+        .city-selector select {
+          background: transparent;
+          border: none;
+          color: var(--color-text-main);
+          font-size: 0.875rem;
+          cursor: pointer;
+          flex: 1;
+        }
+
+        .city-selector select option {
+          background: var(--color-bg-card);
+          color: var(--color-text-main);
+        }
+
+        .btn-config {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem 1rem;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: var(--radius-button);
+          background: transparent;
+          color: var(--color-text-muted);
+          cursor: pointer;
+          font-size: 0.875rem;
+          transition: all 0.2s;
+        }
+
+        .btn-config:hover {
+          border-color: var(--color-brand-primary);
+          color: var(--color-brand-primary);
+        }
+
+        .btn-config.configured {
+          border-color: var(--color-success);
+          color: var(--color-success);
+        }
+
+        .api-key-input {
+          display: flex;
+          gap: 0.5rem;
+        }
+
+        .api-key-input input {
+          flex: 1;
+          padding: 0.625rem 0.875rem;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: var(--radius-button);
+          background: rgba(255, 255, 255, 0.05);
+          color: var(--color-text-main);
+          font-size: 0.875rem;
+        }
+
+        .api-key-input input:focus {
+          outline: none;
+          border-color: var(--color-brand-primary);
+        }
+
+        .api-key-input button {
+          padding: 0.625rem 1rem;
+          border: none;
+          border-radius: var(--radius-button);
+          background: var(--color-brand-primary);
+          color: white;
+          font-weight: 600;
+          cursor: pointer;
+        }
+
+        .api-key-input button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .api-message {
+          padding: 0.5rem 0.75rem;
+          border-radius: var(--radius-button);
+          font-size: 0.875rem;
+          background: rgba(255, 255, 255, 0.03);
         }
 
         .control-buttons {

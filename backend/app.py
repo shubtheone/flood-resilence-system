@@ -108,7 +108,16 @@ def generate_simulated_weather():
     }
 
 def predict_flood(weather_data):
-    """Make flood prediction using the trained model"""
+    """Make flood prediction using the trained model
+    
+    Maps real-time weather data to model features:
+    - MonsoonIntensity: Based on rainfall (0-10 scale, 10 = extreme)
+    - TopographyDrainage: Inverse of soil moisture (saturated = poor drainage)
+    - RiverManagement: Based on river level (lower = better management)
+    - Deforestation: Simulated regional factor
+    - Urbanization: Simulated regional factor
+    - ClimateChange: Based on temperature anomaly
+    """
     if model is None:
         # Fallback rule-based prediction
         risk_score = 0
@@ -127,15 +136,29 @@ def predict_flood(weather_data):
             'method': 'rule-based'
         }
     
-    # Use ML model
+    # Map weather data to model features
     try:
+        rainfall = weather_data.get('rainfall', 0)
+        humidity = weather_data.get('humidity', 50)
+        river_level = weather_data.get('river_level', 3)
+        soil_moisture = weather_data.get('soil_moisture', 40)
+        temperature = weather_data.get('temperature', 25)
+        
+        # Feature mapping (scale to 0-10 range matching Kaggle dataset)
+        monsoon_intensity = min(10, (rainfall / 30))  # 300mm = intensity 10
+        topography_drainage = max(0, 10 - (soil_moisture / 10))  # Low moisture = good drainage
+        river_management = max(0, 10 - river_level)  # Low river = good management
+        deforestation = 5 + (humidity - 50) / 20  # Humidity correlates with deforested areas
+        urbanization = 5  # Base urbanization factor
+        climate_change = min(10, max(0, (temperature - 20) / 2))  # Higher temp = more impact
+        
         features = np.array([[
-            weather_data.get('rainfall', 0),
-            weather_data.get('temperature', 25),
-            weather_data.get('humidity', 50),
-            weather_data.get('wind_speed', 10),
-            weather_data.get('river_level', 3),
-            weather_data.get('soil_moisture', 40)
+            monsoon_intensity,
+            topography_drainage,
+            river_management,
+            deforestation,
+            urbanization,
+            climate_change
         ]])[:, :len(feature_cols)]
         
         features_scaled = scaler.transform(features)
@@ -153,7 +176,15 @@ def predict_flood(weather_data):
         return {
             'probability': float(probability),
             'risk_level': risk_level,
-            'method': 'ml-model'
+            'method': 'ml-model',
+            'features_used': {
+                'monsoon_intensity': round(monsoon_intensity, 2),
+                'topography_drainage': round(topography_drainage, 2),
+                'river_management': round(river_management, 2),
+                'deforestation': round(deforestation, 2),
+                'urbanization': round(urbanization, 2),
+                'climate_change': round(climate_change, 2)
+            }
         }
     except Exception as e:
         print(f"Prediction error: {e}")
