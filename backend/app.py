@@ -11,6 +11,7 @@ import requests
 import random
 from datetime import datetime
 from dotenv import load_dotenv
+import json
 
 # Load environment variables from .env file
 load_dotenv()
@@ -152,14 +153,64 @@ def predict_flood(weather_data):
         urbanization = 5  # Base urbanization factor
         climate_change = min(10, max(0, (temperature - 20) / 2))  # Higher temp = more impact
         
-        features = np.array([[
-            monsoon_intensity,
-            topography_drainage,
-            river_management,
-            deforestation,
-            urbanization,
-            climate_change
-        ]])[:, :len(feature_cols)]
+        # New features (defaults/inferred)
+        # Using 5 (avg) or inferring from other parameters to create realistic variance
+        dams_quality = 5.0
+        siltation = 5.0
+        agricultural_practices = 5.0
+        encroachments = 5.0
+        ineffective_disaster_preparedness = 5.0
+        drainage_systems = max(0, 8 - (rainfall / 50)) # High rain stresses drainage
+        coastal_vulnerability = 5.0
+        landslides = 5.0 + (rainfall / 100) # Rain increases landslide risk
+        watersheds = 5.0
+        deteriorating_infrastructure = 5.0
+        population_score = 5.0
+        wetland_loss = 5.0
+        inadequate_planning = 5.0
+        political_factors = 5.0
+
+        # Create a dictionary of all features
+        all_features = {
+            'MonsoonIntensity': monsoon_intensity,
+            'TopographyDrainage': topography_drainage,
+            'RiverManagement': river_management,
+            'Deforestation': deforestation,
+            'Urbanization': urbanization,
+            'ClimateChange': climate_change,
+            'DamsQuality': dams_quality,
+            'Siltation': siltation,
+            'AgriculturalPractices': agricultural_practices,
+            'Encroachments': encroachments,
+            'IneffectiveDisasterPreparedness': ineffective_disaster_preparedness,
+            'DrainageSystems': drainage_systems,
+            'CoastalVulnerability': coastal_vulnerability,
+            'Landslides': landslides,
+            'Watersheds': watersheds,
+            'DeterioratingInfrastructure': deteriorating_infrastructure,
+            'PopulationScore': population_score,
+            'WetlandLoss': wetland_loss,
+            'InadequatePlanning': inadequate_planning,
+            'PoliticalFactors': political_factors
+        }
+        
+        # Construct feature vector in the order of feature_cols
+        # If feature_cols is unknown/mismatch, we try to follow the known order or fallback
+        if feature_cols:
+            feature_vector = []
+            for col in feature_cols:
+                feature_vector.append(all_features.get(col, 5.0))
+            features = np.array([feature_vector])
+        else:
+            # Fallback for old model or if feature_cols missing
+            features = np.array([[
+                monsoon_intensity,
+                topography_drainage,
+                river_management,
+                deforestation,
+                urbanization,
+                climate_change
+            ]])
         
         features_scaled = scaler.transform(features)
         probability = model.predict_proba(features_scaled)[0][1]
@@ -203,18 +254,36 @@ def get_model_stats():
         return jsonify({'error': 'Model not loaded'}), 404
     
     # Model statistics
+    # Load stats from file if available
+    stats_file = os.path.join(MODEL_DIR, 'model_stats.json')
+    training_accuracy = 0
+    test_accuracy = 0
+    feature_importance = {}
+    
+    if os.path.exists(stats_file):
+        try:
+            with open(stats_file, 'r') as f:
+                saved_stats = json.load(f)
+                training_accuracy = saved_stats.get('training_accuracy', 0)
+                test_accuracy = saved_stats.get('test_accuracy', 0)
+                feature_importance = saved_stats.get('feature_importance', {})
+        except Exception as e:
+            print(f"Error loading stats: {e}")
+            
+    # Model statistics
     stats = {
-        'model_type': 'Random Forest Classifier',
+        'model_type': 'XGBoost Classifier',
         'n_estimators': model.n_estimators,
         'max_depth': model.max_depth,
-        'training_accuracy': 0.7258,  # From training output
-        'test_accuracy': 0.6852,      # From training output
+        'training_accuracy': training_accuracy, 
+        'test_accuracy': test_accuracy,
         'features': feature_cols,
-        'feature_importance': {}
+        'feature_importance': feature_importance
     }
     
     # Get feature importance
-    if hasattr(model, 'feature_importances_'):
+    # Fallback if no saved importance
+    if not feature_importance and hasattr(model, 'feature_importances_'):
         for i, col in enumerate(feature_cols):
             stats['feature_importance'][col] = round(float(model.feature_importances_[i]), 4)
     
